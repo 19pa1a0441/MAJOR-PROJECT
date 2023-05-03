@@ -1,0 +1,93 @@
+clear
+N = 10^6;% number of bits or symbols
+nTx = 2;
+M=4;
+k = sqrt(1/((2/3)*(M-1))); % normalizing factor
+m = 1:sqrt(M)/2; % alphabets
+alphaMqam = [-(2*m-1) 2*m-1]; 
+Eb_N0_dB = 0:30; % multiple Es/N0 values
+ipHat1 = zeros(1,N); % init
+ipHat2 = zeros(1,N); 
+
+for ii = 1:length(Eb_N0_dB)
+      
+    ip = randsrc(1,N,alphaMqam) + 1i*randsrc(1,N,alphaMqam);
+    s = k*ip; % normalization of energy to 1
+    n = 1/sqrt(2)*(randn(1,N) + 1i*randn(1,N)); % white guassian noise, 0dB variance
+    h = 1/sqrt(2)*(randn(nTx,N) + 1i*randn(nTx,N)); % Rayleigh channel
+    sr = (1/sqrt(nTx))*kron(ones(nTx,1),s); 
+    % Channel and noise Noise addition
+   h_tx = h.*exp(-1i*angle(h));
+    y1 = sum(h.*sr,1) + 10^(-Eb_N0_dB(ii)/20)*n; 
+   y2 = sum(h_tx.*sr,1) + 10^(-Eb_N0_dB(ii)/20)*n; 
+   
+y1Hat = y1./sum(h,1); 
+   y2Hat = y2./sum(h_tx,1); 
+    % demodulation
+    y_re1 = real(y1Hat)/k; % real part
+    y_im1 = imag(y1Hat)/k;
+    y_re2 = real(y2Hat)/k; % real part
+    y_im2 = imag(y2Hat)/k; % imaginary part
+    
+    
+ 
+    ipHat_re1 = 2*floor(y_re1/2)+1;
+    
+    ipHat_re1(find(ipHat_re1>max(alphaMqam))) = max(alphaMqam);
+    ipHat_re1(find(ipHat_re1<min(alphaMqam))) = min(alphaMqam);
+	     
+     ipHat_re2 = 2*floor(y_re2/2)+1;
+    
+    ipHat_re2(find(ipHat_re2>max(alphaMqam))) = max(alphaMqam);
+    ipHat_re2(find(ipHat_re2<min(alphaMqam))) = min(alphaMqam);
+	     
+  
+    ipHat_im1 = 2*floor(y_im1/2)+1;
+    ipHat_im1(find(ipHat_im1>max(alphaMqam))) = max(alphaMqam);
+    ipHat_im1(find(ipHat_im1<min(alphaMqam))) = min(alphaMqam);
+    
+      ipHat_im2 = 2*floor(y_im2/2)+1;
+    ipHat_im2(find(ipHat_im2>max(alphaMqam))) = max(alphaMqam);
+    ipHat_im2(find(ipHat_im2<min(alphaMqam))) = min(alphaMqam);
+    
+    
+    ipHat1 = ipHat_re1 + j*ipHat_im1; 
+    nErr1(ii) = size(find([ip- ipHat1]),2); % counting the number of errors
+    
+    ipHat2 = ipHat_re2 + j*ipHat_im2; 
+    nErr2(ii) = size(find([ip- ipHat2]),2); % counting the number of errors
+    
+   
+end
+simBer1 = nErr1/N; % simulated ber (no beam forming)
+simBer2 = nErr2/N; % simulated ber (with beam forming)
+theoryBerAWGN = 0.5*erfc(sqrt(10.^(Eb_N0_dB/10))); % theoretical ber
+EbN0Lin = 10.^(Eb_N0_dB/10);
+theoryBer = 0.5.*(1-sqrt(EbN0Lin./(EbN0Lin+1)));
+p = 1/2 - 1/2*(1+1./EbN0Lin).^(-1/2);
+theoryBer_nRx2 = p.^2.*(1+2*(1-p)); 
+close all
+figure
+semilogy(Eb_N0_dB,simBer1,'ks-','LineWidth',2);
+grid on
+legend('2Tx-1Rx (no Beamforming-sim)');
+xlabel('Eb/No, dB');
+ylabel('Bit Error Rate');
+title('BER for QAM modulation in Rayleigh Fading channel');
+figure
+semilogy(Eb_N0_dB,simBer2,'rx-','LineWidth',2);
+grid on
+legend('2Tx-1Rx (Beamforming-sim)');
+xlabel('Eb/No, dB');
+ylabel('Bit Error Rate');
+title('BER for QAM modulation in Rayleigh Fading channel');
+figure
+semilogy(Eb_N0_dB,simBer1,'ks-','LineWidth',2);
+hold on
+semilogy(Eb_N0_dB,simBer2,'rx-','LineWidth',2);
+axis([0 35 10^-5 0.5])
+grid on
+legend('2Tx-1Rx (no Beamforming-sim)','2Tx-1Rx (Beamforming-sim)');
+xlabel('Eb/No, dB');
+ylabel('Bit Error Rate');
+title('BER for QAM modulation in Rayleigh Fading channel');
